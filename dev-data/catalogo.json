@@ -1,0 +1,22 @@
+[
+  ["ID", "Tipo", "Marca", "Modelo", "PotenciaW", "Voc_STC", "Vmp_STC", "Isc_STC", "CoefTempVoc", "VoltajeMaxEntradaDC", "MPPTMinV", "MPPTMaxV", "CorrienteMaxPorMPPT", "NumeroMPPT", "CapacidadKWh", "CorrienteA", "Precio", "FichaTecnicaURL", "Activo"],
+  ["P1", "Panel", "Jinko Solar", "JKM415M-54HL4-V", 415, 49.5, 41.4, 10.34, -0.26, "", "", "", "", "", "", "", 480000, "", "TRUE"],
+  ["P2", "Panel", "Canadian Solar", "CS6R-550MS", 550, 49.9, 41.8, 13.75, -0.29, "", "", "", "", "", "", "", 620000, "", "TRUE"],
+  ["I1", "Inversor", "Growatt", "MIN 3000TL-X", 3000, "", "", "", "", 500, 80, 450, 13.5, 2, "", "", 2100000, "", "TRUE"],
+  ["I2", "Inversor", "Growatt", "MIN 6000TL-X", 6000, "", "", "", "", 550, 100, 500, 13.5, 3, "", "", 3400000, "", "TRUE"],
+  ["I3", "Inversor", "Growatt", "MOD 10KTL3-X", 10000, "", "", "", "", 1000, 160, 950, 26, 2, "", "", 6200000, "", "TRUE"],
+  ["BAT1", "Bateria", "Pylontech", "US3000C", "", "", "", "", "", "", "", "", "", "", 3.5, "", 4300000, "", "TRUE"],
+  ["EST1", "Estructura", "Genérica", "Riel aluminio + ganchos (techo teja)", "", "", "", "", "", "", "", "", "", "", "", "", 90000, "", "TRUE"],
+  ["CDC1", "CableDC", "Genérico", "Cable solar 10AWG (6mm²)", "", "", "", "", "", "", "", "", "", "", "", 30, 3800, "", "TRUE"],
+  ["CDC2", "CableDC", "Genérico", "Cable solar 12AWG (4mm²)", "", "", "", "", "", "", "", "", "", "", "", 20, 2600, "", "TRUE"],
+  ["CAC1", "CableAC", "Genérico", "Cable THHN 10AWG", "", "", "", "", "", "", "", "", "", "", "", 30, 4200, "", "TRUE"],
+  ["CAC2", "CableAC", "Genérico", "Cable THHN 8AWG", "", "", "", "", "", "", "", "", "", "", "", 40, 5800, "", "TRUE"],
+  ["PDC1", "ProteccionDC", "Genérico", "Breaker DC 15A", "", "", "", "", "", "", "", "", "", "", "", 15, 48000, "", "TRUE"],
+  ["PDC2", "ProteccionDC", "Genérico", "Breaker DC 20A", "", "", "", "", "", "", "", "", "", "", "", 20, 58000, "", "TRUE"],
+  ["PAC1", "ProteccionAC", "Genérico", "Breaker AC 20A", "", "", "", "", "", "", "", "", "", "", "", 20, 62000, "", "TRUE"],
+  ["PAC2", "ProteccionAC", "Genérico", "Breaker AC 32A", "", "", "", "", "", "", "", "", "", "", "", 32, 78000, "", "TRUE"],
+  ["DPS1", "DPS", "Genérico", "DPS Clase II 40kA", "", "", "", "", "", "", "", "", "", "", "", "", 185000, "", "TRUE"],
+  ["MC41", "ConectorMC4", "Staubli", "MC4 (par)", "", "", "", "", "", "", "", "", "", "", "", "", 8500, "", "TRUE"],
+  ["GND1", "PuestaATierra", "Genérico", "Kit puesta a tierra", "", "", "", "", "", "", "", "", "", "", "", "", 160000, "", "TRUE"],
+  ["MED1", "Medidor", "Genérico", "Medidor bidireccional monofásico", "", "", "", "", "", "", "", "", "", "", "", "", 360000, "", "TRUE"]
+]

@@ -1,0 +1,3 @@
+[
+  ["ID", "Fecha", "Cliente", "Direccion", "Ciudad", "MetodoDimensionamiento", "ConsumoMensualKWh", "DemandaMaximaKW", "PotenciaKWp", "NumPaneles", "PanelID", "InversorID", "InversionEstimada", "AhorroMensual", "PaybackMeses", "RetornoA25Anos", "FueraDeAlcanceAGPE", "PDFUrl"]
+]

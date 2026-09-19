@@ -1,0 +1,6 @@
+[
+  ["Ciudad", "HSP_Promedio", "TemperaturaMinima", "TarifaEnergiaCOP"],
+  ["Barranquilla", 5.75, 22, 950],
+  ["Cartagena", 5.6, 23, 920],
+  ["Santa Marta", 5.65, 22, 930]
+]
