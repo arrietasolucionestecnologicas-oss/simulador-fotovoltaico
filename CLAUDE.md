@@ -27,10 +27,11 @@ Proyecto de Gerson (A.S.T. — Arrieta Soluciones Tecnológicas), distinto de lo
 - **Generación de propuesta**: plantilla en Google Docs con marcadores `{{...}}`, Apps Script la
   copia, reemplaza y exporta a PDF.
 
-**Aún no hay recursos en la nube creados** (Sheet, Apps Script project, Doc template, repo
-GitHub) — todo el código de este repo está listo pero no desplegado. Ver [SETUP.md](SETUP.md)
-para los pasos de puesta en marcha (varios requieren confirmación explícita antes de ejecutarse:
-deploy del Web App público, publicación en GitHub Pages).
+**Infraestructura real ya creada**: repo GitHub (privado), proyecto de Apps Script, Google Sheet
+y Web App desplegado y probado en vivo — ver IDs y URLs en [SETUP.md](SETUP.md#-infraestructura-real-ya-creada).
+Pendiente: llenar el catálogo con equipos/precios reales (la hoja existe pero está vacía),
+crear la plantilla de Google Docs (`DOC_TEMPLATE_ID` sin configurar — "Generar propuesta PDF"
+todavía falla), y decidir cuándo publicar el frontend en GitHub Pages (repo privado hoy).
 
 ## Estado por fase
 

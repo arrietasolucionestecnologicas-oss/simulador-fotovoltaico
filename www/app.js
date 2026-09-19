@@ -3,8 +3,8 @@
 // Para producción: pega aquí la URL del Web App desplegado y la misma API_KEY
 // configurada en Propiedades del script del backend (ver SETUP.md).
 const IS_LOCAL_DEV = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const API_URL = IS_LOCAL_DEV ? '/api' : "PENDIENTE_DEPLOY_URL";
-const API_KEY = IS_LOCAL_DEV ? 'dev-local' : "PENDIENTE_API_KEY";
+const API_URL = IS_LOCAL_DEV ? '/api' : "https://script.google.com/macros/s/AKfycbzoQEhDRLY8xohAVBq4FMNn8DzB37f_euWCRI1K-mNDCqijFCM3Ip6YFVd5c4l_6fPQ_A/exec";
+const API_KEY = IS_LOCAL_DEV ? 'dev-local' : "804d3433-e8b4-4135-9040-efac68ebcea2";
 
 let zonasCache = [];
 let ultimoResultado = null;

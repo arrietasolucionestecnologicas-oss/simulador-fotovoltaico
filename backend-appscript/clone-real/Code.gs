@@ -642,3 +642,27 @@ function crearHojaSiNoExiste_(ss, nombre, encabezados) {
   }
   return sh;
 }
+
+/**
+ * Ejecutar UNA VEZ (desde el editor o vía `clasp run`) para poner en marcha el
+ * proyecto: crea el Google Sheet de base de datos, genera un API_KEY si no existe,
+ * lo guarda en Propiedades del script y crea las hojas con `inicializarHojas()`.
+ * Después de correrla, ya no hace falta volver a ejecutarla.
+ */
+function configurarProyectoInicial() {
+  if (PROPS.getProperty('SHEET_ID')) {
+    return { yaConfigurado: true, sheetId: PROPS.getProperty('SHEET_ID'), apiKey: PROPS.getProperty('API_KEY') };
+  }
+  const ss = SpreadsheetApp.create('A.S.T. — Simulador Fotovoltaico DB');
+  PROPS.setProperty('SHEET_ID', ss.getId());
+  if (!PROPS.getProperty('API_KEY')) {
+    PROPS.setProperty('API_KEY', Utilities.getUuid());
+  }
+  inicializarHojas();
+  return {
+    yaConfigurado: false,
+    sheetId: ss.getId(),
+    sheetUrl: ss.getUrl(),
+    apiKey: PROPS.getProperty('API_KEY')
+  };
+}
