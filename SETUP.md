@@ -13,6 +13,10 @@ ver memoria `reference_ast_infrastructure`).
   — ⚠️ público (`ANYONE_ANONYMOUS`), protegido solo por `API_KEY`.
 - **Google Sheet (SHEET_ID)**: `17qnDFvwMNruT0ClTl_4Y6-uCxPrKDNsjo2W3WFuhuLs`
 - **API_KEY**: `804d3433-e8b4-4135-9040-efac68ebcea2` (ya está en `www/app.js`, usado fuera de localhost)
+- **Frontend público (GitHub Pages)**: https://arrietasolucionestecnologicas-oss.github.io/simulador-fotovoltaico/
+  — repo público, Pages se publica vía GitHub Actions (`.github/workflows/deploy-pages.yml`) desde
+  `www/` cada vez que cambia esa carpeta en `main` (o manualmente con
+  `gh workflow run deploy-pages.yml`).
 - Perfil clasp: `ast` (cuenta `arrietasolucionestecnologicas@gmail.com`)
 
 ## ✅ Lo que ya está hecho
@@ -36,7 +40,9 @@ ver memoria `reference_ast_infrastructure`).
       configurados"). Ver sección 4 abajo para las columnas exactas.
 - [ ] **Crear la plantilla de propuesta en Google Docs** y configurar `DOC_TEMPLATE_ID`
       (y opcionalmente `PDF_FOLDER_ID`) — sin esto, "Generar propuesta PDF" falla.
-- [ ] **Publicar el frontend en GitHub Pages** — ⚠️ contenido público; avisar antes.
+- [x] Publicar el frontend en GitHub Pages — repo hecho público (decisión de Gerson: el
+      `API_KEY` no es un secreto real, viaja al navegador igual; el catálogo/precios reales
+      quedan a salvo en el Sheet, que nunca se sube al repo).
 - [ ] Ajustar la tarifa real de energía en `ParametrosZona` (hoy tiene un valor de ejemplo,
       $950/kWh) y agregar otras ciudades si se cotiza fuera de Barranquilla.
 
@@ -120,13 +126,18 @@ clasp -u ast deploy --deploymentId AKfycbzoQEhDRLY8xohAVBq4FMNn8DzB37f_euWCRI1K-
 URL pública en producción (mismo comportamiento que `A-S-T app`, ver memoria
 `reference_ast_infrastructure`).
 
-## 7. Publicar el frontend (GitHub Pages) — ⬜ pendiente
+## 7. Publicar el frontend (GitHub Pages) — ✅ hecho
 
-El repo ya existe (privado): https://github.com/arrietasolucionestecnologicas-oss/simulador-fotovoltaico.
-Falta: activar GitHub Pages sirviendo `www/` como raíz. **Esto hace el repo/contenido público —
-confirmar antes de activarlo** (GitHub Pages en un repo privado requiere plan de pago; la
-alternativa es hacer el repo público, lo cual expone `API_KEY` en el código fuente — no es grave
-porque de todas formas viaja al navegador del cliente, pero es una decisión a confirmar contigo).
+Repo público: https://github.com/arrietasolucionestecnologicas-oss/simulador-fotovoltaico.
+Sitio en vivo: https://arrietasolucionestecnologicas-oss.github.io/simulador-fotovoltaico/.
+
+Se publica vía GitHub Actions (`.github/workflows/deploy-pages.yml`, `actions/deploy-pages`),
+que sube el contenido de `www/` sin duplicarlo en otra carpeta/rama. Se dispara automáticamente
+en cada push a `main` que toque `www/**`, o manualmente con:
+
+```bash
+gh workflow run deploy-pages.yml --repo arrietasolucionestecnologicas-oss/simulador-fotovoltaico
+```
 
 ## 8. Datos que hay que mantener actualizados (sección 7 del spec)
 
