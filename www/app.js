@@ -7,6 +7,9 @@ const API_URL = IS_LOCAL_DEV ? '/api' : "https://script.google.com/macros/s/AKfy
 const API_KEY = IS_LOCAL_DEV ? 'dev-local' : "804d3433-e8b4-4135-9040-efac68ebcea2";
 
 let zonasCache = [];
+let catalogoCache = [];
+let equipoEditandoId = null;
+let zonaEditandoCiudad = null;
 let ultimoResultado = null;
 let ultimosDatosCliente = null;
 
@@ -14,12 +17,26 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
     await cargarZonas();
+    await cargarCatalogoAdmin();
+    await cargarZonasAdmin();
+
     document.getElementById('btnCalcular').addEventListener('click', calcular);
     document.getElementById('btnPropuesta').addEventListener('click', generarPropuesta);
     document.getElementById('metodoDimensionamiento').addEventListener('change', toggleMetodo);
     document.querySelectorAll('.nav-item').forEach(btn => {
         btn.addEventListener('click', () => mostrarVista(btn.dataset.view));
     });
+
+    document.getElementById('filtroTipo').addEventListener('change', renderCatalogoTabla);
+    document.getElementById('btnNuevoEquipo').addEventListener('click', () => abrirFormularioEquipo());
+    document.getElementById('btnCancelarEquipo').addEventListener('click', cerrarFormularioEquipo);
+    document.getElementById('btnGuardarEquipo').addEventListener('click', guardarEquipo);
+    document.getElementById('fTipo').addEventListener('change', actualizarCamposFormularioEquipo);
+
+    document.getElementById('btnNuevaZona').addEventListener('click', () => abrirFormularioZona());
+    document.getElementById('btnCancelarZona').addEventListener('click', cerrarFormularioZona);
+    document.getElementById('btnGuardarZona').addEventListener('click', guardarZonaForm);
+
     toggleMetodo();
 }
 
@@ -240,4 +257,239 @@ async function generarPropuesta() {
     } else {
         alert('No se pudo generar el PDF para este resultado.');
     }
+}
+
+// ── Administración de catálogo (equipos y proveedores) ─────────────────────
+
+const CAMPOS_POR_TIPO = {
+    Panel: ['campo-panel'],
+    Inversor: ['campo-inversor'],
+    Bateria: ['campo-bateria'],
+    CableDC: ['campo-cable-proteccion'],
+    CableAC: ['campo-cable-proteccion'],
+    ProteccionDC: ['campo-cable-proteccion'],
+    ProteccionAC: ['campo-cable-proteccion']
+};
+const NOMBRE_TIPO = {
+    Panel: 'Panel', Inversor: 'Inversor', Bateria: 'Batería', Estructura: 'Estructura',
+    CableDC: 'Cable DC', CableAC: 'Cable AC', ProteccionDC: 'Protección DC',
+    ProteccionAC: 'Protección AC', DPS: 'DPS', ConectorMC4: 'Conector MC4',
+    PuestaATierra: 'Puesta a tierra', Medidor: 'Medidor'
+};
+
+async function cargarCatalogoAdmin() {
+    const res = await callApi('getCatalogo');
+    if (res.success) catalogoCache = res.data;
+    renderCatalogoTabla();
+}
+
+function renderCatalogoTabla() {
+    const filtro = document.getElementById('filtroTipo').value;
+    const cuerpo = document.getElementById('catalogoCuerpo');
+    const items = catalogoCache.filter(it => !filtro || it.tipo === filtro);
+
+    if (items.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="6" style="color:#999;">Sin equipos todavía. Usa "Agregar equipo".</td></tr>';
+        return;
+    }
+
+    cuerpo.innerHTML = items.map(it => `
+        <tr>
+            <td>${NOMBRE_TIPO[it.tipo] || it.tipo}</td>
+            <td>${it.marca || ''} ${it.modelo || ''}</td>
+            <td>${it.proveedor || '—'}</td>
+            <td>${formatCOP(it.precio)}</td>
+            <td><span class="chip ${it.activo ? '' : 'inactivo'}">${it.activo ? 'Activo' : 'Inactivo'}</span></td>
+            <td style="white-space:nowrap;">
+                <button class="btn-fila" data-editar="${it.id}">Editar</button>
+                <button class="btn-fila eliminar" data-eliminar="${it.id}">Eliminar</button>
+            </td>
+        </tr>`).join('');
+
+    cuerpo.querySelectorAll('[data-editar]').forEach(btn =>
+        btn.addEventListener('click', () => abrirFormularioEquipo(btn.dataset.editar)));
+    cuerpo.querySelectorAll('[data-eliminar]').forEach(btn =>
+        btn.addEventListener('click', () => eliminarEquipo(btn.dataset.eliminar)));
+}
+
+function actualizarCamposFormularioEquipo() {
+    const tipo = document.getElementById('fTipo').value;
+    const clasesVisibles = CAMPOS_POR_TIPO[tipo] || [];
+    document.querySelectorAll('.campo-panel, .campo-inversor, .campo-bateria, .campo-cable-proteccion')
+        .forEach(el => el.classList.toggle('oculto', !clasesVisibles.some(c => el.classList.contains(c))));
+}
+
+function abrirFormularioEquipo(id) {
+    equipoEditandoId = id || null;
+    const item = id ? catalogoCache.find(it => it.id === id) : null;
+
+    document.getElementById('formCatalogoTitulo').textContent = item ? 'Editar equipo' : 'Agregar equipo';
+    document.getElementById('fTipo').value = item ? item.tipo : 'Panel';
+    document.getElementById('fMarca').value = item ? item.marca : '';
+    document.getElementById('fModelo').value = item ? item.modelo : '';
+    document.getElementById('fProveedor').value = item ? item.proveedor : '';
+    document.getElementById('fPrecio').value = item ? item.precio : '';
+    document.getElementById('fPotenciaW').value = item ? item.potenciaW : '';
+    document.getElementById('fVoc').value = item ? item.vocStc : '';
+    document.getElementById('fVmp').value = item ? item.vmpStc : '';
+    document.getElementById('fIsc').value = item ? item.iscStc : '';
+    document.getElementById('fCoefTemp').value = item ? item.coefTempVoc : '';
+    document.getElementById('fPotenciaInv').value = item ? item.potenciaW : '';
+    document.getElementById('fVMaxDC').value = item ? item.voltajeMaxEntradaDC : '';
+    document.getElementById('fMpptMin').value = item ? item.mpptMinV : '';
+    document.getElementById('fMpptMax').value = item ? item.mpptMaxV : '';
+    document.getElementById('fCorrienteMppt').value = item ? item.corrienteMaxPorMppt : '';
+    document.getElementById('fNumMppt').value = item ? item.numeroMppt : '';
+    document.getElementById('fCapacidad').value = item ? item.capacidadKWh : '';
+    document.getElementById('fCorrienteA').value = item ? item.corrienteA : '';
+    document.getElementById('fFicha').value = item ? item.fichaTecnicaURL : '';
+    document.getElementById('fActivo').checked = item ? item.activo : true;
+
+    actualizarCamposFormularioEquipo();
+    document.getElementById('formCatalogoWrap').classList.remove('oculto');
+}
+
+function cerrarFormularioEquipo() {
+    equipoEditandoId = null;
+    document.getElementById('formCatalogoWrap').classList.add('oculto');
+}
+
+async function guardarEquipo() {
+    const tipo = document.getElementById('fTipo').value;
+    const esPanel = tipo === 'Panel';
+    const esInversor = tipo === 'Inversor';
+
+    const item = {
+        id: equipoEditandoId || undefined,
+        tipo: tipo,
+        marca: document.getElementById('fMarca').value.trim(),
+        modelo: document.getElementById('fModelo').value.trim(),
+        proveedor: document.getElementById('fProveedor').value.trim(),
+        precio: Number(document.getElementById('fPrecio').value) || 0,
+        fichaTecnicaURL: document.getElementById('fFicha').value.trim(),
+        activo: document.getElementById('fActivo').checked,
+        potenciaW: esPanel ? Number(document.getElementById('fPotenciaW').value) || 0
+            : esInversor ? Number(document.getElementById('fPotenciaInv').value) || 0 : '',
+        vocStc: esPanel ? Number(document.getElementById('fVoc').value) || 0 : '',
+        vmpStc: esPanel ? Number(document.getElementById('fVmp').value) || 0 : '',
+        iscStc: esPanel ? Number(document.getElementById('fIsc').value) || 0 : '',
+        coefTempVoc: esPanel ? Number(document.getElementById('fCoefTemp').value) || 0 : '',
+        voltajeMaxEntradaDC: esInversor ? Number(document.getElementById('fVMaxDC').value) || 0 : '',
+        mpptMinV: esInversor ? Number(document.getElementById('fMpptMin').value) || 0 : '',
+        mpptMaxV: esInversor ? Number(document.getElementById('fMpptMax').value) || 0 : '',
+        corrienteMaxPorMppt: esInversor ? Number(document.getElementById('fCorrienteMppt').value) || 0 : '',
+        numeroMppt: esInversor ? Number(document.getElementById('fNumMppt').value) || 1 : '',
+        capacidadKWh: tipo === 'Bateria' ? Number(document.getElementById('fCapacidad').value) || 0 : '',
+        corrienteA: CAMPOS_POR_TIPO[tipo] && CAMPOS_POR_TIPO[tipo].includes('campo-cable-proteccion')
+            ? Number(document.getElementById('fCorrienteA').value) || 0 : ''
+    };
+
+    if (!item.marca && !item.modelo) {
+        alert('Ingresa al menos marca o modelo.');
+        return;
+    }
+
+    const res = await callApi('guardarCatalogo', item);
+    if (!res.success) {
+        alert('Error guardando el equipo: ' + res.error);
+        return;
+    }
+    cerrarFormularioEquipo();
+    await cargarCatalogoAdmin();
+}
+
+async function eliminarEquipo(id) {
+    const item = catalogoCache.find(it => it.id === id);
+    if (!confirm('¿Eliminar "' + (item ? item.marca + ' ' + item.modelo : id) + '" del catálogo?')) return;
+
+    const res = await callApi('eliminarCatalogo', { id });
+    if (!res.success) {
+        alert('Error eliminando: ' + res.error);
+        return;
+    }
+    await cargarCatalogoAdmin();
+}
+
+// ── Administración de parámetros por ciudad ────────────────────────────────
+
+async function cargarZonasAdmin() {
+    const res = await callApi('getZonas');
+    if (res.success) zonasCache = res.data;
+    renderZonasTabla();
+}
+
+function renderZonasTabla() {
+    const cuerpo = document.getElementById('zonasCuerpo');
+    if (zonasCache.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="5" style="color:#999;">Sin ciudades configuradas.</td></tr>';
+        return;
+    }
+    cuerpo.innerHTML = zonasCache.map(z => `
+        <tr>
+            <td>${z.ciudad}</td>
+            <td>${z.hspPromedio}</td>
+            <td>${z.temperaturaMinima} °C</td>
+            <td>${formatCOP(z.tarifaEnergiaCOP)}</td>
+            <td style="white-space:nowrap;">
+                <button class="btn-fila" data-editar-zona="${z.ciudad}">Editar</button>
+                <button class="btn-fila eliminar" data-eliminar-zona="${z.ciudad}">Eliminar</button>
+            </td>
+        </tr>`).join('');
+
+    cuerpo.querySelectorAll('[data-editar-zona]').forEach(btn =>
+        btn.addEventListener('click', () => abrirFormularioZona(btn.dataset.editarZona)));
+    cuerpo.querySelectorAll('[data-eliminar-zona]').forEach(btn =>
+        btn.addEventListener('click', () => eliminarZonaAdmin(btn.dataset.eliminarZona)));
+}
+
+function abrirFormularioZona(ciudad) {
+    zonaEditandoCiudad = ciudad || null;
+    const zona = ciudad ? zonasCache.find(z => z.ciudad === ciudad) : null;
+
+    document.getElementById('zCiudad').value = zona ? zona.ciudad : '';
+    document.getElementById('zCiudad').disabled = !!zona;
+    document.getElementById('zHsp').value = zona ? zona.hspPromedio : '';
+    document.getElementById('zTemp').value = zona ? zona.temperaturaMinima : '';
+    document.getElementById('zTarifa').value = zona ? zona.tarifaEnergiaCOP : '';
+
+    document.getElementById('formZonaWrap').classList.remove('oculto');
+}
+
+function cerrarFormularioZona() {
+    zonaEditandoCiudad = null;
+    document.getElementById('zCiudad').disabled = false;
+    document.getElementById('formZonaWrap').classList.add('oculto');
+}
+
+async function guardarZonaForm() {
+    const zona = {
+        ciudad: document.getElementById('zCiudad').value.trim(),
+        hspPromedio: Number(document.getElementById('zHsp').value) || 0,
+        temperaturaMinima: Number(document.getElementById('zTemp').value) || 0,
+        tarifaEnergiaCOP: Number(document.getElementById('zTarifa').value) || 0
+    };
+    if (!zona.ciudad) {
+        alert('Ingresa el nombre de la ciudad.');
+        return;
+    }
+
+    const res = await callApi('guardarZona', zona);
+    if (!res.success) {
+        alert('Error guardando la ciudad: ' + res.error);
+        return;
+    }
+    cerrarFormularioZona();
+    await cargarZonasAdmin();
+    await cargarZonas();
+}
+
+async function eliminarZonaAdmin(ciudad) {
+    if (!confirm('¿Eliminar "' + ciudad + '" de los parámetros de zona?')) return;
+    const res = await callApi('eliminarZona', { ciudad });
+    if (!res.success) {
+        alert('Error eliminando: ' + res.error);
+        return;
+    }
+    await cargarZonasAdmin();
+    await cargarZonas();
 }

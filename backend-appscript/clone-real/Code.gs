@@ -62,6 +62,14 @@ function doPost(e) {
         return respond_({ success: true, data: leerCatalogo_() });
       case 'getZonas':
         return respond_({ success: true, data: leerZonas_() });
+      case 'guardarCatalogo':
+        return respond_({ success: true, data: guardarItemCatalogo_(payload) });
+      case 'eliminarCatalogo':
+        return respond_({ success: true, data: eliminarItemCatalogo_(payload.id) });
+      case 'guardarZona':
+        return respond_({ success: true, data: guardarZona_(payload) });
+      case 'eliminarZona':
+        return respond_({ success: true, data: eliminarZona_(payload.ciudad) });
       case 'generarPropuesta':
         return respond_({ success: true, data: generarPropuesta(payload) });
       default:
@@ -437,7 +445,7 @@ function leerCatalogo_() {
     const o = {};
     headers.forEach(function (h, i) { o[h] = r[i]; });
     return {
-      id: o.ID, tipo: o.Tipo, marca: o.Marca, modelo: o.Modelo,
+      id: o.ID, tipo: o.Tipo, marca: o.Marca, modelo: o.Modelo, proveedor: o.Proveedor || '',
       potenciaW: Number(o.PotenciaW) || 0,
       vocStc: Number(o.Voc_STC) || 0, vmpStc: Number(o.Vmp_STC) || 0, iscStc: Number(o.Isc_STC) || 0,
       coefTempVoc: Number(o.CoefTempVoc) || 0,
@@ -478,6 +486,101 @@ function obtenerZona_(ciudad) {
   const porDefecto = zonas.find(function (z) { return z.ciudad === 'Barranquilla'; });
   if (!porDefecto) throw new Error('No hay parámetros de zona configurados (falta al menos "Barranquilla" en ParametrosZona).');
   return porDefecto;
+}
+
+// ── Administración de catálogo y zonas desde la app (sin editar el Sheet a mano) ──
+
+function encontrarFilaPorValor_(sh, columna, valor) {
+  const total = sh.getLastRow();
+  if (total < 2) return -1;
+  const valores = sh.getRange(2, columna, total - 1, 1).getValues();
+  for (let i = 0; i < valores.length; i++) {
+    if (valores[i][0] === valor) return i + 2;
+  }
+  return -1;
+}
+
+const ENCABEZADOS_CATALOGO = [
+  'ID', 'Tipo', 'Marca', 'Modelo', 'Proveedor', 'PotenciaW', 'Voc_STC', 'Vmp_STC', 'Isc_STC',
+  'CoefTempVoc', 'VoltajeMaxEntradaDC', 'MPPTMinV', 'MPPTMaxV', 'CorrienteMaxPorMPPT',
+  'NumeroMPPT', 'CapacidadKWh', 'CorrienteA', 'Precio', 'FichaTecnicaURL', 'Activo'
+];
+
+/**
+ * Autocorrige hojas "Catalogo" creadas antes de que existiera la columna Proveedor
+ * (u otras columnas nuevas que se agreguen a futuro). Solo reescribe el encabezado
+ * si la hoja todavía no tiene filas de datos, para no desalinear datos existentes.
+ */
+function asegurarEncabezadosCatalogo_(sh) {
+  const headers = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
+  const faltaAlguno = ENCABEZADOS_CATALOGO.some(function (h) { return headers.indexOf(h) === -1; });
+  if (faltaAlguno && sh.getLastRow() <= 1) {
+    sh.getRange(1, 1, 1, ENCABEZADOS_CATALOGO.length).setValues([ENCABEZADOS_CATALOGO]);
+    return ENCABEZADOS_CATALOGO;
+  }
+  return headers;
+}
+
+/** payload: item del catálogo (ver leerCatalogo_ para los campos). Si trae `id` existente, actualiza esa fila; si no, crea una nueva. */
+function guardarItemCatalogo_(item) {
+  if (!item.tipo) throw new Error('Falta el tipo de equipo.');
+  const sh = abrirSheet_().getSheetByName('Catalogo');
+  if (!sh) throw new Error('No existe la hoja "Catalogo".');
+  const headers = asegurarEncabezadosCatalogo_(sh);
+  const id = item.id || Utilities.getUuid();
+
+  const valoresPorHeader = {
+    ID: id, Tipo: item.tipo, Marca: item.marca || '', Modelo: item.modelo || '',
+    Proveedor: item.proveedor || '',
+    PotenciaW: item.potenciaW || '', Voc_STC: item.vocStc || '', Vmp_STC: item.vmpStc || '',
+    Isc_STC: item.iscStc || '', CoefTempVoc: item.coefTempVoc || '',
+    VoltajeMaxEntradaDC: item.voltajeMaxEntradaDC || '', MPPTMinV: item.mpptMinV || '',
+    MPPTMaxV: item.mpptMaxV || '', CorrienteMaxPorMPPT: item.corrienteMaxPorMppt || '',
+    NumeroMPPT: item.numeroMppt || '', CapacidadKWh: item.capacidadKWh || '',
+    CorrienteA: item.corrienteA || '', Precio: Number(item.precio) || 0,
+    FichaTecnicaURL: item.fichaTecnicaURL || '', Activo: item.activo !== false
+  };
+  const fila = headers.map(function (h) { return valoresPorHeader.hasOwnProperty(h) ? valoresPorHeader[h] : ''; });
+
+  const filaExistente = item.id ? encontrarFilaPorValor_(sh, headers.indexOf('ID') + 1, item.id) : -1;
+  if (filaExistente > 0) {
+    sh.getRange(filaExistente, 1, 1, fila.length).setValues([fila]);
+  } else {
+    sh.appendRow(fila);
+  }
+  return { id: id };
+}
+
+function eliminarItemCatalogo_(id) {
+  if (!id) throw new Error('Falta el id del equipo a eliminar.');
+  const sh = abrirSheet_().getSheetByName('Catalogo');
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const fila = encontrarFilaPorValor_(sh, headers.indexOf('ID') + 1, id);
+  if (fila > 0) sh.deleteRow(fila);
+  return { eliminado: fila > 0 };
+}
+
+/** payload: { ciudad, hspPromedio, temperaturaMinima, tarifaEnergiaCOP }. Si la ciudad ya existe, la actualiza. */
+function guardarZona_(zona) {
+  if (!zona.ciudad) throw new Error('Falta la ciudad.');
+  const sh = abrirSheet_().getSheetByName('ParametrosZona');
+  if (!sh) throw new Error('No existe la hoja "ParametrosZona".');
+  const fila = [zona.ciudad, Number(zona.hspPromedio) || 0, Number(zona.temperaturaMinima) || 0, Number(zona.tarifaEnergiaCOP) || 0];
+  const filaExistente = encontrarFilaPorValor_(sh, 1, zona.ciudad);
+  if (filaExistente > 0) {
+    sh.getRange(filaExistente, 1, 1, fila.length).setValues([fila]);
+  } else {
+    sh.appendRow(fila);
+  }
+  return { ciudad: zona.ciudad };
+}
+
+function eliminarZona_(ciudad) {
+  if (!ciudad) throw new Error('Falta la ciudad a eliminar.');
+  const sh = abrirSheet_().getSheetByName('ParametrosZona');
+  const fila = encontrarFilaPorValor_(sh, 1, ciudad);
+  if (fila > 0) sh.deleteRow(fila);
+  return { eliminado: fila > 0 };
 }
 
 // ── Generador de propuesta PDF (sección 5.8) ───────────────────────────────
@@ -614,7 +717,7 @@ function inicializarHojas() {
   const ss = abrirSheet_();
 
   crearHojaSiNoExiste_(ss, 'Catalogo', [
-    'ID', 'Tipo', 'Marca', 'Modelo', 'PotenciaW', 'Voc_STC', 'Vmp_STC', 'Isc_STC',
+    'ID', 'Tipo', 'Marca', 'Modelo', 'Proveedor', 'PotenciaW', 'Voc_STC', 'Vmp_STC', 'Isc_STC',
     'CoefTempVoc', 'VoltajeMaxEntradaDC', 'MPPTMinV', 'MPPTMaxV', 'CorrienteMaxPorMPPT',
     'NumeroMPPT', 'CapacidadKWh', 'CorrienteA', 'Precio', 'FichaTecnicaURL', 'Activo'
   ]);
@@ -665,4 +768,46 @@ function configurarProyectoInicial() {
     sheetUrl: ss.getUrl(),
     apiKey: PROPS.getProperty('API_KEY')
   };
+}
+
+/**
+ * Ejecutar UNA VEZ (desde el editor) para sembrar un catálogo de EJEMPLO en la hoja
+ * "Catalogo" y así poder probar la app de inmediato. Estos son datos de muestra —
+ * marcas, specs y precios inventados, no reales. La gestión real del catálogo
+ * (agregar/editar/eliminar equipos y precios de proveedores) se hace desde la
+ * pantalla "Catálogo" de la app — no hace falta volver a editar el Sheet a mano.
+ * Esta función no hace nada si la hoja ya tiene filas, para no duplicar.
+ */
+function cargarCatalogoDemo_() {
+  const sh = abrirSheet_().getSheetByName('Catalogo');
+  if (!sh) throw new Error('No existe la hoja "Catalogo". Corre inicializarHojas() primero.');
+  asegurarEncabezadosCatalogo_(sh);
+  if (sh.getLastRow() > 1) {
+    return { yaTeniaDatos: true, filas: sh.getLastRow() - 1 };
+  }
+
+  const filas = [
+    ['P1', 'Panel', 'Jinko Solar', 'JKM415M-54HL4-V', 'Distribuidor Demo', 415, 49.5, 41.4, 10.34, -0.26, '', '', '', '', '', '', '', 480000, '', true],
+    ['P2', 'Panel', 'Canadian Solar', 'CS6R-550MS', 'Distribuidor Demo', 550, 49.9, 41.8, 13.75, -0.29, '', '', '', '', '', '', '', 620000, '', true],
+    ['I1', 'Inversor', 'Growatt', 'MIN 3000TL-X', 'Distribuidor Demo', 3000, '', '', '', '', 500, 80, 450, 13.5, 2, '', '', 2100000, '', true],
+    ['I2', 'Inversor', 'Growatt', 'MIN 6000TL-X', 'Distribuidor Demo', 6000, '', '', '', '', 550, 100, 500, 13.5, 3, '', '', 3400000, '', true],
+    ['I3', 'Inversor', 'Growatt', 'MOD 10KTL3-X', 'Distribuidor Demo', 10000, '', '', '', '', 1000, 160, 950, 26, 2, '', '', 6200000, '', true],
+    ['BAT1', 'Bateria', 'Pylontech', 'US3000C', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', 3.5, '', 4300000, '', true],
+    ['EST1', 'Estructura', 'Genérica', 'Riel aluminio + ganchos (techo teja)', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', '', 90000, '', true],
+    ['CDC1', 'CableDC', 'Genérico', 'Cable solar 10AWG (6mm²)', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', 30, 3800, '', true],
+    ['CDC2', 'CableDC', 'Genérico', 'Cable solar 12AWG (4mm²)', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', 20, 2600, '', true],
+    ['CAC1', 'CableAC', 'Genérico', 'Cable THHN 10AWG', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', 30, 4200, '', true],
+    ['CAC2', 'CableAC', 'Genérico', 'Cable THHN 8AWG', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', 40, 5800, '', true],
+    ['PDC1', 'ProteccionDC', 'Genérico', 'Breaker DC 15A', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', 15, 48000, '', true],
+    ['PDC2', 'ProteccionDC', 'Genérico', 'Breaker DC 20A', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', 20, 58000, '', true],
+    ['PAC1', 'ProteccionAC', 'Genérico', 'Breaker AC 20A', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', 20, 62000, '', true],
+    ['PAC2', 'ProteccionAC', 'Genérico', 'Breaker AC 32A', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', 32, 78000, '', true],
+    ['DPS1', 'DPS', 'Genérico', 'DPS Clase II 40kA', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', '', 185000, '', true],
+    ['MC41', 'ConectorMC4', 'Staubli', 'MC4 (par)', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', '', 8500, '', true],
+    ['GND1', 'PuestaATierra', 'Genérico', 'Kit puesta a tierra', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', '', 160000, '', true],
+    ['MED1', 'Medidor', 'Genérico', 'Medidor bidireccional monofásico', 'Distribuidor Demo', '', '', '', '', '', '', '', '', '', '', '', '', 360000, '', true]
+  ];
+  filas.forEach(function (fila) { sh.appendRow(fila); });
+
+  return { yaTeniaDatos: false, filasAgregadas: filas.length };
 }

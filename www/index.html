@@ -20,6 +20,9 @@
             <button class="nav-item active" data-view="formulario">
                 <span class="nav-icon">＋</span> Nuevo cálculo
             </button>
+            <button class="nav-item" data-view="catalogo">
+                <span class="nav-icon">▦</span> Catálogo
+            </button>
             <button class="nav-item" data-view="resumen" disabled>
                 <span class="nav-icon">◧</span> Resumen
             </button>
@@ -99,6 +102,128 @@
                 <div class="actions">
                     <button class="btn-primary" id="btnCalcular">Calcular sistema</button>
                 </div>
+            </div>
+        </section>
+
+        <section class="view" id="view-catalogo">
+            <div class="view-header">
+                <h1>Catálogo</h1>
+                <p>Equipos, proveedores y precios — se gestionan aquí, no en una hoja de cálculo.</p>
+            </div>
+
+            <div class="panel">
+                <h2>Equipos y proveedores</h2>
+                <div class="catalogo-toolbar">
+                    <select id="filtroTipo">
+                        <option value="">Todos los tipos</option>
+                        <option value="Panel">Panel</option>
+                        <option value="Inversor">Inversor</option>
+                        <option value="Bateria">Batería</option>
+                        <option value="Estructura">Estructura</option>
+                        <option value="CableDC">Cable DC</option>
+                        <option value="CableAC">Cable AC</option>
+                        <option value="ProteccionDC">Protección DC</option>
+                        <option value="ProteccionAC">Protección AC</option>
+                        <option value="DPS">DPS</option>
+                        <option value="ConectorMC4">Conector MC4</option>
+                        <option value="PuestaATierra">Puesta a tierra</option>
+                        <option value="Medidor">Medidor</option>
+                    </select>
+                    <button class="btn-primary" id="btnNuevoEquipo">+ Agregar equipo</button>
+                </div>
+
+                <div class="panel-anidado oculto" id="formCatalogoWrap">
+                    <h3 id="formCatalogoTitulo">Agregar equipo</h3>
+                    <div class="grid">
+                        <div class="field">
+                            <label for="fTipo">Tipo</label>
+                            <select id="fTipo">
+                                <option value="Panel">Panel</option>
+                                <option value="Inversor">Inversor</option>
+                                <option value="Bateria">Batería</option>
+                                <option value="Estructura">Estructura</option>
+                                <option value="CableDC">Cable DC</option>
+                                <option value="CableAC">Cable AC</option>
+                                <option value="ProteccionDC">Protección DC</option>
+                                <option value="ProteccionAC">Protección AC</option>
+                                <option value="DPS">DPS</option>
+                                <option value="ConectorMC4">Conector MC4</option>
+                                <option value="PuestaATierra">Puesta a tierra</option>
+                                <option value="Medidor">Medidor</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="fMarca">Marca</label><input type="text" id="fMarca"></div>
+                        <div class="field"><label for="fModelo">Modelo</label><input type="text" id="fModelo"></div>
+                        <div class="field"><label for="fProveedor">Proveedor</label><input type="text" id="fProveedor" placeholder="Quién te lo cotizó"></div>
+                        <div class="field"><label for="fPrecio">Precio (COP)</label><input type="number" id="fPrecio" min="0"></div>
+
+                        <div class="field campo-panel"><label for="fPotenciaW">Potencia (W)</label><input type="number" id="fPotenciaW"></div>
+                        <div class="field campo-panel"><label for="fVoc">Voc STC (V)</label><input type="number" id="fVoc" step="0.01"></div>
+                        <div class="field campo-panel"><label for="fVmp">Vmp STC (V)</label><input type="number" id="fVmp" step="0.01"></div>
+                        <div class="field campo-panel"><label for="fIsc">Isc STC (A)</label><input type="number" id="fIsc" step="0.01"></div>
+                        <div class="field campo-panel"><label for="fCoefTemp">Coef. temp. Voc (%/°C)</label><input type="number" id="fCoefTemp" step="0.01"></div>
+
+                        <div class="field campo-inversor"><label for="fPotenciaInv">Potencia AC (W)</label><input type="number" id="fPotenciaInv"></div>
+                        <div class="field campo-inversor"><label for="fVMaxDC">Voltaje máx. entrada DC (V)</label><input type="number" id="fVMaxDC"></div>
+                        <div class="field campo-inversor"><label for="fMpptMin">MPPT mínimo (V)</label><input type="number" id="fMpptMin"></div>
+                        <div class="field campo-inversor"><label for="fMpptMax">MPPT máximo (V)</label><input type="number" id="fMpptMax"></div>
+                        <div class="field campo-inversor"><label for="fCorrienteMppt">Corriente máx. por MPPT (A)</label><input type="number" id="fCorrienteMppt" step="0.01"></div>
+                        <div class="field campo-inversor"><label for="fNumMppt">Número de MPPT</label><input type="number" id="fNumMppt" min="1" step="1"></div>
+
+                        <div class="field campo-bateria"><label for="fCapacidad">Capacidad (kWh)</label><input type="number" id="fCapacidad" step="0.1"></div>
+
+                        <div class="field campo-cable-proteccion"><label for="fCorrienteA">Corriente (A)</label><input type="number" id="fCorrienteA" step="0.1"></div>
+
+                        <div class="field"><label for="fFicha">Ficha técnica (URL)</label><input type="text" id="fFicha" placeholder="https://..."></div>
+                        <div class="field">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;">
+                                <input type="checkbox" id="fActivo" style="width:auto;" checked>
+                                Activo (disponible para cotizar)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-primary" id="btnGuardarEquipo">Guardar</button>
+                        <button class="btn-secondary" id="btnCancelarEquipo">Cancelar</button>
+                    </div>
+                </div>
+
+                <table class="tabla-bom" id="catalogoTablaEl">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th><th>Marca / Modelo</th><th>Proveedor</th><th>Precio</th><th>Activo</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="catalogoCuerpo"></tbody>
+                </table>
+            </div>
+
+            <div class="panel">
+                <h2>Parámetros por ciudad</h2>
+                <div class="catalogo-toolbar">
+                    <button class="btn-primary" id="btnNuevaZona">+ Agregar ciudad</button>
+                </div>
+
+                <div class="panel-anidado oculto" id="formZonaWrap">
+                    <h3>Ciudad</h3>
+                    <div class="grid">
+                        <div class="field"><label for="zCiudad">Ciudad</label><input type="text" id="zCiudad"></div>
+                        <div class="field"><label for="zHsp">HSP promedio</label><input type="number" id="zHsp" step="0.01"></div>
+                        <div class="field"><label for="zTemp">Temperatura mínima (°C)</label><input type="number" id="zTemp" step="0.1"></div>
+                        <div class="field"><label for="zTarifa">Tarifa energía (COP/kWh)</label><input type="number" id="zTarifa" step="1"></div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-primary" id="btnGuardarZona">Guardar</button>
+                        <button class="btn-secondary" id="btnCancelarZona">Cancelar</button>
+                    </div>
+                </div>
+
+                <table class="tabla-bom">
+                    <thead>
+                        <tr><th>Ciudad</th><th>HSP</th><th>T. mínima</th><th>Tarifa COP/kWh</th><th></th></tr>
+                    </thead>
+                    <tbody id="zonasCuerpo"></tbody>
+                </table>
             </div>
         </section>
 

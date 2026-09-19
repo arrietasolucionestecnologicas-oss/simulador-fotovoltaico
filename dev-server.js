@@ -23,18 +23,46 @@ const db = {
   Cotizaciones: JSON.parse(fs.readFileSync(path.join(DEV_DATA_DIR, 'cotizaciones.json'), 'utf8'))
 };
 
+const ARCHIVO_POR_HOJA = { Catalogo: 'catalogo.json', ParametrosZona: 'zonas.json', Cotizaciones: 'cotizaciones.json' };
+
+function persistir_(nombre) {
+  fs.writeFileSync(path.join(DEV_DATA_DIR, ARCHIVO_POR_HOJA[nombre]), JSON.stringify(db[nombre], null, 2));
+}
+
 function makeSheet(nombre) {
   return {
     getDataRange: function () {
       return { getValues: function () { return db[nombre].map(function (r) { return r.slice(); }); } };
     },
+    getRange: function (row, col, numRows, numCols) {
+      return {
+        getValues: function () {
+          const out = [];
+          for (let r = 0; r < (numRows || 1); r++) {
+            const fila = db[nombre][row - 1 + r] || [];
+            out.push(fila.slice(col - 1, col - 1 + (numCols || 1)));
+          }
+          return out;
+        },
+        setValues: function (valores) {
+          valores.forEach(function (fila, i) {
+            const destino = db[nombre][row - 1 + i] || (db[nombre][row - 1 + i] = []);
+            fila.forEach(function (v, j) { destino[col - 1 + j] = v; });
+          });
+          persistir_(nombre);
+        }
+      };
+    },
+    getLastColumn: function () { return (db[nombre][0] || []).length; },
     appendRow: function (fila) {
       db[nombre].push(fila);
-      fs.writeFileSync(
-        path.join(DEV_DATA_DIR, nombre === 'Cotizaciones' ? 'cotizaciones.json' : nombre + '.json'),
-        JSON.stringify(db[nombre], null, 2)
-      );
+      persistir_(nombre);
     },
+    deleteRow: function (row) {
+      db[nombre].splice(row - 1, 1);
+      persistir_(nombre);
+    },
+    setFrozenRows: function () {},
     getLastRow: function () { return db[nombre].length; }
   };
 }
@@ -145,6 +173,10 @@ const server = http.createServer(function (req, res) {
           case 'calcular': data = sandbox.calcularSistema(parsed.payload || {}); break;
           case 'getCatalogo': data = sandbox.leerCatalogo_(); break;
           case 'getZonas': data = sandbox.leerZonas_(); break;
+          case 'guardarCatalogo': data = sandbox.guardarItemCatalogo_(parsed.payload || {}); break;
+          case 'eliminarCatalogo': data = sandbox.eliminarItemCatalogo_((parsed.payload || {}).id); break;
+          case 'guardarZona': data = sandbox.guardarZona_(parsed.payload || {}); break;
+          case 'eliminarZona': data = sandbox.eliminarZona_((parsed.payload || {}).ciudad); break;
           case 'generarPropuesta': data = generarPropuestaLocal(parsed.payload || {}); break;
           default:
             res.writeHead(400, { 'Content-Type': 'application/json' });
