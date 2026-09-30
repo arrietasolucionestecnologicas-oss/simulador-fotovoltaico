@@ -153,8 +153,16 @@ function calcularSistema(datos) {
         inversor.potenciaW <= potenciaSistemaW * 1.3;
       if (!dentroDeRangoPotencia) return;
 
-      const verificacion = verificarString_(panel, inversor, zona.temperaturaMinima, numPaneles);
-      if (!verificacion.compatible) return;
+      // Fase B (AUTORIZACIÓN CONDICIONADA): enumera TODAS las configuraciones válidas de string
+      // (enumerarCandidatosString_, ElectricalEngine.gs) y elige la mejor con la semántica
+      // FAIL excluye / PASS preferido sobre REQUIRES_REVIEW / REQUIRES_REVIEW nunca se presenta
+      // como validado — ver elegirMejorCandidato_. Ya no se usa `verificarString_` (legacy,
+      // "pick max posible" sin estados) para decidir qué se cotiza.
+      const candidatos = enumerarCandidatosString_(panel, inversor, zona.temperaturaMinima, zona.temperaturaMaxima, numPaneles);
+      const candidatoElegido = elegirMejorCandidato_(candidatos);
+      if (!candidatoElegido) return;
+
+      const verificacion = construirVerificacionString_(panel, inversor, zona.temperaturaMinima, candidatoElegido);
 
       const bom = armarBOM_(catalogo, {
         numPaneles: numPaneles, panel: panel, inversor: inversor,
@@ -164,7 +172,8 @@ function calcularSistema(datos) {
       const financiero = calcularFinanciero_(bom.totalMateriales, ahorroBaseKWh, zona.tarifaEnergiaCOP);
       combinaciones.push({
         panel: panel, inversor: inversor, numPaneles: numPaneles,
-        verificacionString: verificacion, bom: bom, financiero: financiero
+        verificacionString: verificacion, bom: bom, financiero: financiero,
+        candidatoElegido: candidatoElegido
       });
     });
   });
@@ -186,9 +195,16 @@ function calcularSistema(datos) {
     });
     if (forzada) elegida = forzada;
   } else {
-    combinaciones.sort(function (a, b) { return a.financiero.inversionEstimada - b.financiero.inversionEstimada; });
-    elegida = combinaciones[0];
+    // AUTORIZACIÓN CONDICIONADA — FASE B: nunca elegir una combinación REQUIRES_REVIEW en vez
+    // de una PASS disponible por razones comerciales (precio). Se particiona primero por
+    // estado y solo DESPUÉS se ordena por inversión dentro de cada grupo.
+    const enPass = combinaciones.filter(function (c) { return c.candidatoElegido.status === STATUS.PASS; });
+    const pool = enPass.length > 0 ? enPass : combinaciones;
+    pool.sort(function (a, b) { return a.financiero.inversionEstimada - b.financiero.inversionEstimada; });
+    elegida = pool[0];
   }
+
+  const configuracionValidada = elegida.candidatoElegido.status === STATUS.PASS;
 
   const resultado = {
     fueraDeAlcanceAGPE: false,
@@ -206,10 +222,56 @@ function calcularSistema(datos) {
     bom: elegida.bom,
     financiero: elegida.financiero,
     regulatorio: chequeoRegulatorio_(potenciaAjustadaKwp),
-    opcionesCompatibles: combinaciones.length
+    opcionesCompatibles: combinaciones.length,
+    // Fase B — nunca presentar REQUIRES_REVIEW como si fuera una configuración validada.
+    estadoConfiguracion: configuracionValidada ? 'VALIDADA' : 'PROVISIONAL',
+    mensajeEstadoConfiguracion: configuracionValidada
+      ? 'CONFIGURACIÓN VALIDADA'
+      : 'CONFIGURACIÓN PROVISIONAL / REQUIERE REVISIÓN TÉCNICA',
+    auditoria: construirAuditoriaCandidato_(elegida.candidatoElegido)
   };
   resultado.diagramaSVG = generarDiagramaUnifilarSVG_(resultado);
   return resultado;
+}
+
+/**
+ * Adapta un candidato de `enumerarCandidatosString_` (ElectricalEngine.gs) a la forma
+ * `verificacionString` que ya consumen `armarBOM_` y `generarDiagramaUnifilarSVG_` (compatible
+ * hacia atrás: mismos campos, mismos valores que el legacy `verificarString_` cuando los datos
+ * existen), agregando `status`/`checks` para exponer el detalle por chequeo (Fase B).
+ */
+function construirVerificacionString_(panel, inversor, temperaturaMinima, candidato) {
+  const vocFrio = calcularVocFrio_(panel, temperaturaMinima);
+  const corrienteDiseno = calcularCorrienteDiseno_(panel);
+  const fusibleRecomendadoA = corrienteDiseno.status === STATUS.PASS ? corrienteDiseno.calculated : null;
+  const maxStringsPorMppt = fusibleRecomendadoA
+    ? Math.floor(inversor.corrienteMaxPorMppt / fusibleRecomendadoA)
+    : null;
+
+  return {
+    compatible: true, // los candidatos FAIL ya se excluyeron en elegirMejorCandidato_
+    status: candidato.status,
+    motivo: null,
+    vocCorregidoV: vocFrio.status === STATUS.PASS ? vocFrio.calculated : null,
+    panelesPorString: candidato.panelesPorString,
+    numeroStrings: candidato.numeroStrings,
+    stringsPorMppt: candidato.stringsPorMppt,
+    maxStringsPorMppt: maxStringsPorMppt,
+    fusibleRecomendadoA: fusibleRecomendadoA,
+    checks: candidato.checks
+  };
+}
+
+/** Empaqueta los 8 chequeos del candidato elegido como AuditEntry (Audit.gs), Fase B. */
+function construirAuditoriaCandidato_(candidato) {
+  return Object.keys(candidato.checks).map(function (k) {
+    const c = candidato.checks[k];
+    return crearAuditEntry_({
+      check: c.check, result: c.status, calculated: c.calculated, limit: c.limit,
+      unit: null, formula: c.formula, source: c.source, motivo: c.motivo,
+      engineVersion: 'electrical-fase-b'
+    });
+  });
 }
 
 /**
@@ -567,12 +629,21 @@ const ENCABEZADOS_CATALOGO = [
  */
 function asegurarEncabezadosCatalogo_(sh) {
   const headers = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
-  const faltaAlguno = ENCABEZADOS_CATALOGO.some(function (h) { return headers.indexOf(h) === -1; });
-  if (faltaAlguno && sh.getLastRow() <= 1) {
+  const faltantes = ENCABEZADOS_CATALOGO.filter(function (h) { return headers.indexOf(h) === -1; });
+  if (faltantes.length === 0) return headers;
+
+  if (sh.getLastRow() <= 1) {
+    // Hoja sin datos: escribe el encabezado completo tal cual.
     sh.getRange(1, 1, 1, ENCABEZADOS_CATALOGO.length).setValues([ENCABEZADOS_CATALOGO]);
     return ENCABEZADOS_CATALOGO;
   }
-  return headers;
+
+  // Fase B: hoja CON datos (ej. el catálogo real de producción) — agrega las columnas que
+  // falten al FINAL del encabezado existente, sin tocar ni reordenar las columnas actuales.
+  // Las filas ya existentes simplemente quedan con celdas vacías en las columnas nuevas (no se
+  // pierde ni se desalinea ningún dato existente).
+  sh.getRange(1, headers.length + 1, 1, faltantes.length).setValues([faltantes]);
+  return headers.concat(faltantes);
 }
 
 /** payload: item del catálogo (ver leerCatalogo_ para los campos). Si trae `id` existente, actualiza esa fila; si no, crea una nueva. */
@@ -626,12 +697,51 @@ function eliminarItemCatalogo_(id) {
   return { eliminado: fila > 0 };
 }
 
-/** payload: { ciudad, hspPromedio, temperaturaMinima, tarifaEnergiaCOP }. Si la ciudad ya existe, la actualiza. */
+const ENCABEZADOS_ZONA = [
+  'Ciudad', 'HSP_Promedio', 'TemperaturaMinima', 'TarifaEnergiaCOP',
+  // Fase B (PARTE 3 de ENGINEERING.md) — necesaria para Vmp en caliente. Se agrega al final del
+  // encabezado existente (igual que asegurarEncabezadosCatalogo_), sin reordenar columnas.
+  'TemperaturaMaxima'
+];
+
+/**
+ * Autocorrige hojas "ParametrosZona" creadas antes de que existiera la columna
+ * TemperaturaMaxima (u otras columnas nuevas que se agreguen a futuro). Mismo criterio que
+ * asegurarEncabezadosCatalogo_: si la hoja ya tiene filas de datos, las columnas que falten se
+ * agregan al final del encabezado sin tocar ni reordenar las columnas existentes.
+ */
+function asegurarEncabezadosZona_(sh) {
+  const headers = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
+  const faltantes = ENCABEZADOS_ZONA.filter(function (h) { return headers.indexOf(h) === -1; });
+  if (faltantes.length === 0) return headers;
+
+  if (sh.getLastRow() <= 1) {
+    sh.getRange(1, 1, 1, ENCABEZADOS_ZONA.length).setValues([ENCABEZADOS_ZONA]);
+    return ENCABEZADOS_ZONA;
+  }
+
+  sh.getRange(1, headers.length + 1, 1, faltantes.length).setValues([faltantes]);
+  return headers.concat(faltantes);
+}
+
+/** payload: { ciudad, hspPromedio, temperaturaMinima, tarifaEnergiaCOP, temperaturaMaxima }. Si la ciudad ya existe, la actualiza. */
 function guardarZona_(zona) {
   if (!zona.ciudad) throw new Error('Falta la ciudad.');
   const sh = abrirSheet_().getSheetByName('ParametrosZona');
   if (!sh) throw new Error('No existe la hoja "ParametrosZona".');
-  const fila = [zona.ciudad, Number(zona.hspPromedio) || 0, Number(zona.temperaturaMinima) || 0, Number(zona.tarifaEnergiaCOP) || 0];
+  const headers = asegurarEncabezadosZona_(sh);
+
+  const valoresPorHeader = {
+    Ciudad: zona.ciudad,
+    HSP_Promedio: Number(zona.hspPromedio) || 0,
+    TemperaturaMinima: Number(zona.temperaturaMinima) || 0,
+    TarifaEnergiaCOP: Number(zona.tarifaEnergiaCOP) || 0,
+    // Fase B — opcional (no inventar si no viene en el payload).
+    TemperaturaMaxima: zona.temperaturaMaxima === undefined || zona.temperaturaMaxima === null || zona.temperaturaMaxima === ''
+      ? '' : Number(zona.temperaturaMaxima)
+  };
+  const fila = headers.map(function (h) { return valoresPorHeader.hasOwnProperty(h) ? valoresPorHeader[h] : ''; });
+
   const filaExistente = encontrarFilaPorValor_(sh, 1, zona.ciudad);
   if (filaExistente > 0) {
     sh.getRange(filaExistente, 1, 1, fila.length).setValues([fila]);

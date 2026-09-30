@@ -217,3 +217,34 @@ function enumerarCandidatosString_(panel, inversor, temperaturaMinima, temperatu
 
   return candidatos;
 }
+
+// ── Selección de candidatos (AUTORIZACIÓN CONDICIONADA — FASE B) ───────────
+
+/**
+ * Semántica de selección EXACTA autorizada (no negociable sin nueva autorización):
+ * - FAIL: excluye el candidato por completo, nunca seleccionable.
+ * - PASS: seleccionable y preferido sobre cualquier REQUIRES_REVIEW disponible — nunca se
+ *   elige un REQUIRES_REVIEW en vez de un PASS comparable por razones comerciales (precio).
+ * - REQUIRES_REVIEW: seleccionable SOLO si no hay ningún PASS para este panel+inversor; el
+ *   candidato nunca se presenta como validado (ver `resultado.estadoConfiguracion` en Code.gs).
+ * - UNKNOWN en cualquier chequeo ya se resolvió como REQUIRES_REVIEW dentro de
+ *   `enumerarCandidatosString_` (nunca PASS silencioso) — esta función no vuelve a tocar eso.
+ *
+ * Dentro del mismo nivel de estado (todos PASS, o todos REQUIRES_REVIEW porque no hay PASS),
+ * se prefiere el candidato con MÁS paneles por string — mismo criterio económico que el legacy
+ * `nSerie = Math.min(nSerieMax, numPanelesTotal)` (menos strings en paralelo, BOM más barato).
+ * Esto es una elección de configuración física entre candidatos igualmente válidos/revisables,
+ * no una degradación del estado de cumplimiento — el estado del candidato elegido se conserva
+ * y se expone tal cual en el resultado.
+ */
+function elegirMejorCandidato_(candidatos) {
+  const seleccionables = candidatos.filter(function (c) { return c.status !== STATUS.FAIL; });
+  if (seleccionables.length === 0) return null;
+
+  const enPass = seleccionables.filter(function (c) { return c.status === STATUS.PASS; });
+  const pool = enPass.length > 0 ? enPass : seleccionables;
+
+  return pool.reduce(function (mejor, actual) {
+    return actual.panelesPorString > mejor.panelesPorString ? actual : mejor;
+  });
+}

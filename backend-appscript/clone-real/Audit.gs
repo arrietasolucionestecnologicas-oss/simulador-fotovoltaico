@@ -24,7 +24,8 @@ function crearAuditEntry_(campos) {
     unit: campos.unit,
     formula: campos.formula,
     source: campos.source,
-    engineVersion: 'legacy-fase1',
+    motivo: campos.motivo || null,
+    engineVersion: campos.engineVersion || 'legacy-fase1',
     timestamp: new Date().toISOString()
   };
 }

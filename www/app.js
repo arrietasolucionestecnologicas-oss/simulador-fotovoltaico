@@ -133,13 +133,17 @@ async function calcular() {
 
 function mostrarResultado(r) {
     const alertas = document.getElementById('alertas');
+    const estadoBox = document.getElementById('estadoConfiguracion');
     const grid = document.getElementById('resultadoGrid');
     const nota = document.getElementById('notaRegulatoria');
+    const detalle = document.getElementById('detalleTecnico');
     const btnPropuesta = document.getElementById('btnPropuesta');
 
     alertas.innerHTML = '';
+    estadoBox.innerHTML = '';
     grid.innerHTML = '';
     nota.innerHTML = '';
+    detalle.innerHTML = '';
     btnPropuesta.classList.add('oculto');
     actualizarSidebarProyecto(null);
 
@@ -154,6 +158,23 @@ function mostrarResultado(r) {
     if (r.error) {
         alertas.innerHTML = `<div class="alerta warning">${r.error}</div>`;
         return;
+    }
+
+    // Fase B: nunca presentar una configuración REQUIRES_REVIEW como si fuera validada —
+    // el backend ya distingue esto explícitamente en estadoConfiguracion.
+    if (r.estadoConfiguracion) {
+        const esValidada = r.estadoConfiguracion === 'VALIDADA';
+        estadoBox.innerHTML = `
+            <div class="alerta ${esValidada ? 'success' : 'warning'}">
+                <strong>${r.mensajeEstadoConfiguracion || r.estadoConfiguracion}</strong>
+                ${esValidada
+                    ? 'Todos los chequeos eléctricos de esta configuración se verificaron con datos reales.'
+                    : 'Uno o más chequeos eléctricos no se pudieron verificar con los datos disponibles del catálogo (ver detalle técnico abajo). Esta propuesta requiere revisión técnica manual antes de instalarse.'}
+            </div>`;
+    }
+
+    if (r.auditoria && r.auditoria.length) {
+        detalle.innerHTML = renderDetalleTecnico(r.auditoria);
     }
 
     const metodo = r.metodoUsado === 'cargabilidad'
@@ -224,6 +245,28 @@ function mostrarBOM(bom) {
         </tr>`;
 
     cuerpo.innerHTML = filas + filaTotal;
+}
+
+function renderDetalleTecnico(auditoria) {
+    const filas = auditoria.map(a => `
+        <tr>
+            <td>${a.check}</td>
+            <td class="estado-${a.result}">${a.result}</td>
+            <td>${a.calculated !== null && a.calculated !== undefined ? a.calculated : '—'}</td>
+            <td>${a.limit !== null && a.limit !== undefined ? a.limit : '—'}</td>
+            <td>${a.motivo || '—'}</td>
+        </tr>`).join('');
+
+    return `
+        <details class="detalle-tecnico">
+            <summary>Ver detalle técnico por chequeo (${auditoria.length})</summary>
+            <table>
+                <thead>
+                    <tr><th>Chequeo</th><th>Estado</th><th>Calculado</th><th>Límite</th><th>Motivo</th></tr>
+                </thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </details>`;
 }
 
 function stat(valor, etiqueta) {

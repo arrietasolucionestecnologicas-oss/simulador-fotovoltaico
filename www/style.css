@@ -317,6 +317,51 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     color: var(--ast-danger);
 }
 
+.alerta.success {
+    background-color: rgba(0, 200, 120, 0.12);
+    border: 1px solid #00c878;
+    color: #00c878;
+}
+
+.alerta strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.detalle-tecnico {
+    font-size: 12px;
+    color: #999;
+    border-top: 1px solid var(--ast-border);
+    padding-top: 12px;
+    margin-top: 16px;
+}
+
+.detalle-tecnico summary {
+    cursor: pointer;
+    color: var(--ast-cyan);
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.detalle-tecnico table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+
+.detalle-tecnico th, .detalle-tecnico td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--ast-border);
+    font-size: 12px;
+}
+
+.detalle-tecnico .estado-PASS { color: #00c878; }
+.detalle-tecnico .estado-REQUIRES_REVIEW { color: var(--ast-warning); }
+.detalle-tecnico .estado-UNKNOWN { color: #999; }
+.detalle-tecnico .estado-FAIL { color: var(--ast-danger); }
+
 .nota-regulatoria {
     font-size: 12px;
     color: #999;
