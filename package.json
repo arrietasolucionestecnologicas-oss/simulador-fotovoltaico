@@ -1,0 +1,11 @@
+{
+  "name": "simulador-fotovoltaico-ast",
+  "private": true,
+  "description": "Simulador Fotovoltaico A.S.T. — motor de calculo (Apps Script) + frontend estatico.",
+  "scripts": {
+    "test": "node tests/run.js && node tests/run-b.js",
+    "test:a": "node tests/run.js",
+    "test:b": "node tests/run-b.js",
+    "dev": "node dev-server.js"
+  }
+}

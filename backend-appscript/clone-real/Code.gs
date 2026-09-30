@@ -436,6 +436,19 @@ function abrirSheet_() {
   return SpreadsheetApp.openById(config.SHEET_ID);
 }
 
+/**
+ * Fase B — lee un campo numérico OPCIONAL sin inventar un valor cuando falta. A diferencia de
+ * `Number(x) || 0` (usado por los campos legacy de abajo, que no se tocan para no cambiar
+ * ningún resultado de Fase A), esto devuelve `undefined` — no 0 — cuando la celda está vacía,
+ * para que el motor eléctrico de Fase B pueda distinguir "el valor es cero" de "el dato no
+ * existe" (ENGINEERING.md, "REGLA DE NO ASUMIR").
+ */
+function leerNumeroOpcional_(valor) {
+  if (valor === '' || valor === null || valor === undefined) return undefined;
+  const n = Number(valor);
+  return isNaN(n) ? undefined : n;
+}
+
 function leerCatalogo_() {
   const sh = abrirSheet_().getSheetByName('Catalogo');
   if (!sh) throw new Error('No existe la hoja "Catalogo".');
@@ -457,7 +470,37 @@ function leerCatalogo_() {
       corrienteA: Number(o.CorrienteA) || 0,
       precio: Number(o.Precio) || 0,
       fichaTecnicaURL: o.FichaTecnicaURL || '',
-      activo: o.Activo === true || o.Activo === 'TRUE' || o.Activo === 'VERDADERO'
+      activo: o.Activo === true || o.Activo === 'TRUE' || o.Activo === 'VERDADERO',
+
+      // ── Fase B: campos nuevos, opcionales, additivos (ENGINEERING.md, PARTE 1 y PARTE 2). ──
+      // `undefined` cuando la columna no existe o la celda está vacía — nunca 0 ni inventado.
+      // Módulo:
+      imp: leerNumeroOpcional_(o.Imp),
+      coefTempVmp: leerNumeroOpcional_(o.CoefTempVmp),
+      coefTempIsc: leerNumeroOpcional_(o.CoefTempIsc),
+      temperaturaMinOperacion: leerNumeroOpcional_(o.TemperaturaMinOperacion),
+      temperaturaMaxOperacion: leerNumeroOpcional_(o.TemperaturaMaxOperacion),
+      tecnologia: o.Tecnologia || undefined,
+      dimensiones: o.Dimensiones || undefined,
+      peso: leerNumeroOpcional_(o.Peso),
+      certificaciones: o.Certificaciones || undefined,
+      fechaVerificacion: o.FechaVerificacion || undefined,
+      // Inversor (PARTE 2 — nombres separados de corriente, no un solo campo ambiguo):
+      corrienteMaxEntradaMPPT: leerNumeroOpcional_(o.CorrienteMaxPorMPPT), // mismo dato legacy, nombre explícito
+      corrienteMaxCortocircuitoMPPT: leerNumeroOpcional_(o.CorrienteMaxCortocircuitoMPPT), // NUEVO, distinto
+      potenciaACMax: leerNumeroOpcional_(o.PotenciaACMax),
+      tensionArranque: leerNumeroOpcional_(o.TensionArranque),
+      entradasPorMPPT: leerNumeroOpcional_(o.EntradasPorMPPT),
+      numeroMaxStrings: leerNumeroOpcional_(o.NumeroMaxStrings),
+      tensionAC: leerNumeroOpcional_(o.TensionAC),
+      frecuencia: leerNumeroOpcional_(o.Frecuencia),
+      fases: leerNumeroOpcional_(o.Fases),
+      factorPotencia: leerNumeroOpcional_(o.FactorPotencia),
+      potenciaAparente: leerNumeroOpcional_(o.PotenciaAparente),
+      eficiencia: leerNumeroOpcional_(o.Eficiencia),
+      temperaturaOperacion: o.TemperaturaOperacion || undefined,
+      gradoIP: o.GradoIP || undefined,
+      antiIslanding: o.AntiIslanding === true || o.AntiIslanding === 'TRUE' || o.AntiIslanding === 'VERDADERO' || undefined
     };
   });
 }
@@ -474,7 +517,11 @@ function leerZonas_() {
       ciudad: o.Ciudad,
       hspPromedio: Number(o.HSP_Promedio) || 0,
       temperaturaMinima: Number(o.TemperaturaMinima) || 0,
-      tarifaEnergiaCOP: Number(o.TarifaEnergiaCOP) || 0
+      tarifaEnergiaCOP: Number(o.TarifaEnergiaCOP) || 0,
+      // Fase B: necesaria para Vmp en caliente (PARTE 3). Opcional/additiva — ninguna
+      // hoja ParametrosZona existente la tiene todavía, por eso queda `undefined` (no
+      // inventada) hasta que se cargue un dato real de temperatura máxima de diseño.
+      temperaturaMaxima: leerNumeroOpcional_(o.TemperaturaMaxima)
     };
   });
 }
@@ -503,7 +550,14 @@ function encontrarFilaPorValor_(sh, columna, valor) {
 const ENCABEZADOS_CATALOGO = [
   'ID', 'Tipo', 'Marca', 'Modelo', 'Proveedor', 'PotenciaW', 'Voc_STC', 'Vmp_STC', 'Isc_STC',
   'CoefTempVoc', 'VoltajeMaxEntradaDC', 'MPPTMinV', 'MPPTMaxV', 'CorrienteMaxPorMPPT',
-  'NumeroMPPT', 'CapacidadKWh', 'CorrienteA', 'Precio', 'FichaTecnicaURL', 'Activo'
+  'NumeroMPPT', 'CapacidadKWh', 'CorrienteA', 'Precio', 'FichaTecnicaURL', 'Activo',
+  // Fase B (PARTE 1/2 de ENGINEERING.md) — solo aplican a hojas NUEVAS (sin filas de datos);
+  // no migran el Sheet de producción existente (ver PHASE_B_INVENTORY.md, PARTE 10).
+  'Imp', 'CoefTempVmp', 'CoefTempIsc', 'TemperaturaMinOperacion', 'TemperaturaMaxOperacion',
+  'Tecnologia', 'Dimensiones', 'Peso', 'Certificaciones', 'FechaVerificacion',
+  'CorrienteMaxCortocircuitoMPPT', 'PotenciaACMax', 'TensionArranque', 'EntradasPorMPPT',
+  'NumeroMaxStrings', 'TensionAC', 'Frecuencia', 'Fases', 'FactorPotencia', 'PotenciaAparente',
+  'Eficiencia', 'TemperaturaOperacion', 'GradoIP', 'AntiIslanding'
 ];
 
 /**
@@ -538,7 +592,19 @@ function guardarItemCatalogo_(item) {
     MPPTMaxV: item.mpptMaxV || '', CorrienteMaxPorMPPT: item.corrienteMaxPorMppt || '',
     NumeroMPPT: item.numeroMppt || '', CapacidadKWh: item.capacidadKWh || '',
     CorrienteA: item.corrienteA || '', Precio: Number(item.precio) || 0,
-    FichaTecnicaURL: item.fichaTecnicaURL || '', Activo: item.activo !== false
+    FichaTecnicaURL: item.fichaTecnicaURL || '', Activo: item.activo !== false,
+    // Fase B — campos nuevos, todos opcionales (se guardan solo si vienen en el payload).
+    Imp: item.imp || '', CoefTempVmp: item.coefTempVmp || '', CoefTempIsc: item.coefTempIsc || '',
+    TemperaturaMinOperacion: item.temperaturaMinOperacion || '', TemperaturaMaxOperacion: item.temperaturaMaxOperacion || '',
+    Tecnologia: item.tecnologia || '', Dimensiones: item.dimensiones || '', Peso: item.peso || '',
+    Certificaciones: item.certificaciones || '', FechaVerificacion: item.fechaVerificacion || '',
+    CorrienteMaxCortocircuitoMPPT: item.corrienteMaxCortocircuitoMPPT || '',
+    PotenciaACMax: item.potenciaACMax || '', TensionArranque: item.tensionArranque || '',
+    EntradasPorMPPT: item.entradasPorMPPT || '', NumeroMaxStrings: item.numeroMaxStrings || '',
+    TensionAC: item.tensionAC || '', Frecuencia: item.frecuencia || '', Fases: item.fases || '',
+    FactorPotencia: item.factorPotencia || '', PotenciaAparente: item.potenciaAparente || '',
+    Eficiencia: item.eficiencia || '', TemperaturaOperacion: item.temperaturaOperacion || '',
+    GradoIP: item.gradoIP || '', AntiIslanding: item.antiIslanding || ''
   };
   const fila = headers.map(function (h) { return valoresPorHeader.hasOwnProperty(h) ? valoresPorHeader[h] : ''; });
 

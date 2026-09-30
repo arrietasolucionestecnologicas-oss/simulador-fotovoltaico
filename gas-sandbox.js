@@ -14,7 +14,7 @@ const CODE_DIR = path.join(__dirname, 'backend-appscript', 'clone-real');
 // Orden de carga: Code.gs primero (motor legacy), luego las piezas de Fase A que dependen de
 // que STATUS/calcularSistema ya existan en el contexto al momento en que se LLAMEN (no al
 // momento en que se DEFINEN, por hoisting de function declarations).
-const ARCHIVOS_GS = ['Code.gs', 'Status.gs', 'Legacy.gs', 'ProjectModel.gs', 'Audit.gs'];
+const ARCHIVOS_GS = ['Code.gs', 'Status.gs', 'Legacy.gs', 'ProjectModel.gs', 'Audit.gs', 'ElectricalEngine.gs'];
 
 /**
  * dataDir: carpeta con catalogo.json / zonas.json / cotizaciones.json (mismo formato que
