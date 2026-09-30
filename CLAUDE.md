@@ -17,7 +17,16 @@ hay una v1 sin el "(1)" ya superada, no usarla).
 Proyecto distinto de los demás en `APLICACIONES AUTOMATIZADAS BASES DE DATOS/` — no confundir con
 `App Senerpot`, `Generador de oferta Senerpot`, `APP GESTION PRUEBAS MICHAEL`, `A-S-T app`, etc.
 
-## Cómo va (estado actual)
+**Estándar de ingeniería (2026-09-30 en adelante)**: [ENGINEERING.md](ENGINEERING.md) — prompt
+maestro de Gerson que gobierna todo desarrollo futuro (separación de dominios, modelo de datos
+central, auditoría por cálculo, motor normativo versionado, testing obligatorio, etc.). El código
+actual descrito abajo es la Fase 1 original, previa a este estándar — ver diagnóstico punto por
+punto en [GAP-ANALYSIS.md](GAP-ANALYSIS.md) y el plan de fases (A–H) para cerrar la brecha. Hay 3
+decisiones pendientes de Gerson antes de empezar la Fase A (conflicto demanda×1.25 vs. motor
+energético, manejo del `API_KEY` expuesto en el repo público, y ritmo de fases) — ver el final de
+ese documento.
+
+## Cómo va (estado actual — Fase 1, previa al estándar de ingeniería)
 
 **Todo lo de abajo ya está construido, desplegado y probado en producción — no es un prototipo
 local.**
