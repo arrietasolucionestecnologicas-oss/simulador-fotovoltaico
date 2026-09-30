@@ -1,5 +1,6 @@
 // Servidor de desarrollo LOCAL — sirve www/ y emula el backend de Apps Script
-// ejecutando el Code.gs REAL dentro de un sandbox (no es una copia/duplicado de la lógica).
+// ejecutando los .gs REALES de backend-appscript/clone-real/ dentro de un sandbox compartido
+// (gas-sandbox.js — el mismo que usan los Golden Cases de tests/, para no duplicar lógica).
 // Solo la generación de PDF vía Google Docs/Drive se reemplaza por una vista previa HTML,
 // porque esa parte depende de servicios de Google que no existen fuera de Apps Script.
 // Uso: node dev-server.js  →  http://localhost:8744
@@ -7,85 +8,15 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 const crypto = require('crypto');
+const { crearSandboxGAS } = require('./gas-sandbox');
 
 const ROOT = __dirname;
 const WWW_DIR = path.join(ROOT, 'www');
-const CODE_GS_PATH = path.join(ROOT, 'backend-appscript', 'clone-real', 'Code.gs');
 const DEV_DATA_DIR = path.join(ROOT, 'dev-data');
 const PORT = 8744;
 
-// ── Base de datos en memoria (mismo formato que getValues() de un Sheet real) ──
-const db = {
-  Catalogo: JSON.parse(fs.readFileSync(path.join(DEV_DATA_DIR, 'catalogo.json'), 'utf8')),
-  ParametrosZona: JSON.parse(fs.readFileSync(path.join(DEV_DATA_DIR, 'zonas.json'), 'utf8')),
-  Cotizaciones: JSON.parse(fs.readFileSync(path.join(DEV_DATA_DIR, 'cotizaciones.json'), 'utf8'))
-};
-
-const ARCHIVO_POR_HOJA = { Catalogo: 'catalogo.json', ParametrosZona: 'zonas.json', Cotizaciones: 'cotizaciones.json' };
-
-function persistir_(nombre) {
-  fs.writeFileSync(path.join(DEV_DATA_DIR, ARCHIVO_POR_HOJA[nombre]), JSON.stringify(db[nombre], null, 2));
-}
-
-function makeSheet(nombre) {
-  return {
-    getDataRange: function () {
-      return { getValues: function () { return db[nombre].map(function (r) { return r.slice(); }); } };
-    },
-    getRange: function (row, col, numRows, numCols) {
-      return {
-        getValues: function () {
-          const out = [];
-          for (let r = 0; r < (numRows || 1); r++) {
-            const fila = db[nombre][row - 1 + r] || [];
-            out.push(fila.slice(col - 1, col - 1 + (numCols || 1)));
-          }
-          return out;
-        },
-        setValues: function (valores) {
-          valores.forEach(function (fila, i) {
-            const destino = db[nombre][row - 1 + i] || (db[nombre][row - 1 + i] = []);
-            fila.forEach(function (v, j) { destino[col - 1 + j] = v; });
-          });
-          persistir_(nombre);
-        }
-      };
-    },
-    getLastColumn: function () { return (db[nombre][0] || []).length; },
-    appendRow: function (fila) {
-      db[nombre].push(fila);
-      persistir_(nombre);
-    },
-    deleteRow: function (row) {
-      db[nombre].splice(row - 1, 1);
-      persistir_(nombre);
-    },
-    setFrozenRows: function () {},
-    getLastRow: function () { return db[nombre].length; }
-  };
-}
-
-// ── Shims mínimos de los servicios de Apps Script que Code.gs necesita ──
-const devProps = { SHEET_ID: 'dev-local', DOC_TEMPLATE_ID: 'dev-local', PDF_FOLDER_ID: null, API_KEY: null };
-const sandbox = {
-  PropertiesService: { getScriptProperties: function () { return { getProperty: function (k) { return devProps[k]; } }; } },
-  SpreadsheetApp: { openById: function () { return { getSheetByName: function (n) { return db[n] ? makeSheet(n) : null; } }; } },
-  Utilities: {
-    getUuid: function () { return crypto.randomUUID(); },
-    formatDate: function (date, tz, fmt) {
-      const d = date;
-      const pad = function (n) { return String(n).padStart(2, '0'); };
-      return fmt.indexOf('yyyy-MM-dd') === 0
-        ? d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
-        : pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
-    }
-  },
-  console: console
-};
-vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync(CODE_GS_PATH, 'utf8'), sandbox, { filename: 'Code.gs' });
+const { sandbox, db } = crearSandboxGAS({ dataDir: DEV_DATA_DIR, persistirCambios: true });
 
 // ── Vista previa local de la propuesta (reemplaza el PDF real de Google Docs) ──
 const propuestas = new Map();
